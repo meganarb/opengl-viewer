@@ -1,17 +1,18 @@
 #version 330 core
 layout (location = 0) in vec3 aPos;
 out vec3 FragPos;
-out bool zbuffer;
-out bool gouraud;
-uniform mat4 model = mat4(1.0f);
-uniform mat4 persp = mat4(1.0f);
-uniform bool gour = false;
-uniform bool zbuf = false;
+out float zbuffer;
+out float gouraud;
+uniform mat4 model;
+uniform mat4 persp;
+uniform float gour;
+uniform float zbuf;
 void main()
 {
-   FragPos = vec3(persp * model * vec4(aPos, 1.0));
-   gl_Position = vec4(FragPos, 1.0f);
-   gouraud = gour;
+   vec4 pos = persp * model * vec4(aPos, 1.0);
+   FragPos = vec3(pos);
    zbuffer = zbuf;
+   gouraud = gour;
+   gl_Position = pos;
 }
 

@@ -1,4 +1,5 @@
 // template based on material from learnopengl.com
+
 #include <GL/glew.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -15,7 +16,7 @@
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-void getObj(const char* file, bool gouraud, std::vector<float>& vertices, std::vector<float>& normals);
+std::vector<float> getObj(const char* file);
 std::string getSource(std::string file);
 void keyInput(GLFWwindow* window, float& tx, float& ty, float& tz, float& rx, float& ry, float& rz, float& s);
 
@@ -90,8 +91,6 @@ int main()
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
 
-    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
-
     // check for linking errors
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success) {
@@ -101,21 +100,22 @@ int main()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+    
+
     bool gouraud = true;
-    bool perspective = true;
-    bool zbuffer = false;
+    bool perspective = false;
+    float zbuffer = 1.0f;
 
     glm::mat4 persp;
-    float aspectRatio = 1.0f; // CHANGE THIS
+    float aspectRatio = (float)SCR_WIDTH / (float)SCR_HEIGHT; 
     if (perspective)
         persp = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
-    else persp = glm::ortho(0.0f, 800.0f, 0.0f, 600.0f, 0.1f, 100.0f); 
+    else persp = glm::ortho(-11.067f, 11.067f, -8.3f, 8.3f, 0.1f, 100.0f);
 
-    std::vector<float> v;
-    std::vector<float> n;
     const char* file = "al.obj";
-    getObj(file, gouraud, v, n);
+    std::vector<float> v = getObj(file);
     size_t s = v.size();
+    
     
     float vertices[100000];
     for (int i = 0; i < s; i++)
@@ -148,28 +148,26 @@ int main()
     // uncomment this call to draw in wireframe polygons.
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    float tx, ty, tz, rx, ry, rz, scale;
-    float tx2, ty2, tz2, rx2, ry2, rz2, scale2;
-    tx = ty = tz = rx = ry = rz = 0.0f;
-    tx2 = ty2 = tz2 = rx2 = ry2 = rz2 = 0.0f;
-    scale = scale2 = 1.0f;
-    bool move = false;
 
-    float rot = 0.0f;
+    glUseProgram(shaderProgram);
 
-    GLuint perspLoc = glGetUniformLocation(shaderProgram, "persp");
-    glUniform1i(modelLoc, 1, GL_FALSE, glm::value_ptr(perspective));
+    GLint perspLoc = glGetUniformLocation(shaderProgram, "persp");
+    glUniformMatrix4fv(perspLoc, 1, GL_FALSE, glm::value_ptr(persp));
+    std::cout << perspLoc;
 
-    GLuint modelLoc = glGetUniformLocation(shaderProgram, "gour");
-    glUniform1i(modelLoc, 1, GL_FALSE, glm::value_ptr(gouraud));
+    GLuint gourLoc = glGetUniformLocation(shaderProgram, "gour");
+    glUniform1i(gourLoc, gouraud);
 
-    GLuint modelLoc = glGetUniformLocation(shaderProgram, "zbuf");
-    glUniform1i(modelLoc, 1, GL_FALSE, glm::value_ptr(zbuffer));
+    GLuint zbufLoc = glGetUniformLocation(shaderProgram, "zbuf");
+    glUniform1i(zbufLoc, zbuffer);
 
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
     {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // input
         // -----
         processInput(window);
@@ -184,38 +182,19 @@ int main()
 
         glm::mat4 model = glm::mat4(1.0f);
 
-        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
-            move = true;
-        else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
-            move = false;
+        
+        //model = glm::scale(model, glm::vec3(0.1f));
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -20.0f));
 
-        glm::vec3 pos = glm::vec3(0.5f, 0.5f, 0.0f);
-        model = glm::translate(model, pos);
-        model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
-
-        if (move)
-        {
-            keyInput(window, tx, ty, tz, rx, ry, rz, scale);
-        }
-        pos = pos + glm::vec3(tx, ty, tz);
-        model = glm::translate(model, glm::vec3(tx, ty, tz));
-        model = glm::scale(model, glm::vec3(scale, scale, scale));
-        model = glm::rotate(model, glm::radians(rx), glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(ry), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(rz), glm::vec3(0.0f, 0.0f, 1.0f));
-
-        if (!move)
-        {
-            rot += 0.1f;
-            glm::vec3 axis = pos - glm::vec3(-0.5f, -0.5f, 0.0f);
-            model = glm::rotate(model, glm::radians(rot), axis);
-        }
+  
         
         GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
         glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
         glDrawArrays(GL_TRIANGLES, 0, numVertices);
+        // glBindVertexArray(0); // unbind our VA no need to unbind it every time 
+
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -252,14 +231,13 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-void getObj(const char* file, bool gouraud, std::vector<float>& vertices, std::vector<float>& normals)
+std::vector<float> getObj(const char* file)
 {
     std::string line;
     std::string word;
     std::vector<float> verts;
-    std::vector<float> textures;
-    std::vector<std::vector>> norms;
     std::vector<int> faces;
+    std::vector<float> triangles;
 
     std::ifstream obj(file);
     if (!obj.is_open())
@@ -276,28 +254,17 @@ void getObj(const char* file, bool gouraud, std::vector<float>& vertices, std::v
         if (word == "v")
         {
             while (stream >> word)
-            {
                 verts.push_back(stof(word));
-                norms.push_back();
-            }
-        } 
-        else if (word == "vt")
-        {
-            stream >> word;
-            textures.push_back(stof(word));
-            stream >> word;
-            textures.push_back(stof(word));
+            //std::cout << word << std::endl;
         }
         else if (word == "f")
         {
             std::vector<int> faceVerts;
-            std::vector<int> faceTexts;
             while (stream >> word)
             {
+                //std::cout << word.substr(0, word.find('/')) << std::endl;
                 if (word.find('/') != std::string::npos)
                     faceVerts.push_back(std::stoi(word.substr(0, word.find('/'))));
-                    word = word.substr(word.find('/') + 1, word.size() - word.find('/') - 1);
-                    faceTexts.push_back(std::stoi(word.substr(0, word.find('/'))));
                 else
                     faceVerts.push_back(std::stoi(word));
             }
@@ -306,26 +273,22 @@ void getObj(const char* file, bool gouraud, std::vector<float>& vertices, std::v
                 faces.push_back(faceVerts.at(0) - 1);
                 faces.push_back(faceVerts.at(i) - 1);
                 faces.push_back(faceVerts.at(i + 1) - 1);
-
-                glm::vec3 a = glm::vec3(verts.at(faceVerts.at(0) - 1) * 3, verts.at(faceVerts.at(0) - 1) * 3 + 1, verts.at(faceVerts.at(0) - 1) * 3 + 2);
-                glm::vec3 b = glm::vec3(verts.at(faceVerts.at(i) - 1) * 3, verts.at(faceVerts.at(i) - 1) * 3 + 1, verts.at(faceVerts.at(i) - 1) * 3 + 2);
-                glm::vec3 c = glm::vec3(verts.at(faceVerts.at(i + 1) - 1) * 3, verts.at(faceVerts.at(i + 1) - 1) * 3 + 1, verts.at(faceVerts.at(i + 1) - 1) * 3 + 2);
-
-                glm::vec3 ab = glm::vec3(b.x - a.x, b.y - a.y, b.z - a.z);
-                glm::vec3 ac = glm::vec3(c.x - a.x, c.y - a.y, c.z - a.z);
-
-                glm::vec3 norm = glm::cross(ab, ac);
             }
         }
         else continue;
     }
     for (int i = 0; i < faces.size(); i++)
     {
-        vertices.push_back(verts.at(faces.at(i) * 3));
-        vertices.push_back(verts.at(faces.at(i) * 3 + 1));
-        vertices.push_back(verts.at(faces.at(i) * 3 + 2));
+        //std::cout << verts.at(faces.at(i));
+        triangles.push_back(verts.at(faces.at(i) * 3));
+        triangles.push_back(verts.at(faces.at(i) * 3 + 1));
+        triangles.push_back(verts.at(faces.at(i) * 3 + 2));
     }
 
+    if (faces.size() == 0)
+        return verts;
+
+    return triangles;
 }
 
 std::string getSource(std::string file)
