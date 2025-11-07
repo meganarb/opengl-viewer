@@ -102,15 +102,15 @@ int main()
 
     
 
-    bool gouraud = true;
+    int gouraud = 1;
     bool perspective = false;
-    float zbuffer = 1.0f;
+    int zbuffer = 1;
 
-    glm::mat4 persp;
+    glm::mat4 projection;
     float aspectRatio = (float)SCR_WIDTH / (float)SCR_HEIGHT; 
     if (perspective)
-        persp = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
-    else persp = glm::ortho(-11.067f, 11.067f, -8.3f, 8.3f, 0.1f, 100.0f);
+        projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+    else projection = glm::ortho(-11.067f, 11.067f, -8.3f, 8.3f, 0.1f, 100.0f);
 
     const char* file = "al.obj";
     std::vector<float> v = getObj(file);
@@ -123,7 +123,7 @@ int main()
         vertices[i] = v.at(i);
     }
 
-    unsigned int numVertices = sizeof(vertices) / 3;
+    unsigned int numVertices = (sizeof(vertices) / sizeof(float)) / 3;
 
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -151,9 +151,8 @@ int main()
 
     glUseProgram(shaderProgram);
 
-    GLint perspLoc = glGetUniformLocation(shaderProgram, "persp");
-    glUniformMatrix4fv(perspLoc, 1, GL_FALSE, glm::value_ptr(persp));
-    std::cout << perspLoc;
+    GLint projLoc = glGetUniformLocation(shaderProgram, "proj");
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
     GLuint gourLoc = glGetUniformLocation(shaderProgram, "gour");
     glUniform1i(gourLoc, gouraud);
@@ -162,7 +161,7 @@ int main()
     glUniform1i(zbufLoc, zbuffer);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_ALWAYS);
+   
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -176,20 +175,26 @@ int main()
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        //glDepthFunc(GL_LESS);
 
         // draw our first triangle
         glUseProgram(shaderProgram);
 
         glm::mat4 model = glm::mat4(1.0f);
+        glm::mat4 view = glm::mat4(1.0f);
 
         
-        //model = glm::scale(model, glm::vec3(0.1f));
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -20.0f));
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -30.0f));
+        model = glm::scale(model, glm::vec3(2.0f));
+        model = glm::rotate(model,glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
   
         
         GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+        GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
         glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
         glDrawArrays(GL_TRIANGLES, 0, numVertices);
