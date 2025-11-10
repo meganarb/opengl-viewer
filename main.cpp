@@ -16,7 +16,7 @@
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-std::vector<float> getObj(const char* file);
+std::vector<float> getObj(const char* file, bool gouraud);
 std::string getSource(std::string file);
 void keyInput(GLFWwindow* window, float& tx, float& ty, float& tz, float& rx, float& ry, float& rz, float& s);
 
@@ -113,7 +113,7 @@ int main()
     else projection = glm::ortho(-11.067f, 11.067f, -8.3f, 8.3f, 0.1f, 100.0f);
 
     const char* file = "al.obj";
-    std::vector<float> v = getObj(file);
+    std::vector<float> v = getObj(file, true);
     size_t s = v.size();
     
     
@@ -236,13 +236,17 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-std::vector<float> getObj(const char* file)
+std::vector<float> getObj(const char* file, bool gouraud)
 {
     std::string line;
     std::string word;
     std::vector<float> verts;
     std::vector<int> faces;
+
     std::vector<float> triangles;
+    std::vector<float> textures;
+    std::vector<float> vertNorms;
+    //std::vector<std::tuple<int, float, float, float>> vertNorms;
 
     std::ifstream obj(file);
     if (!obj.is_open())
@@ -259,15 +263,26 @@ std::vector<float> getObj(const char* file)
         if (word == "v")
         {
             while (stream >> word)
+            {
                 verts.push_back(stof(word));
-            //std::cout << word << std::endl;
+                vertNorms.push_back(0.0f);
+                vertNorms.push_back(0.0f);
+                vertNorms.push_back(0.0f);
+                vertNorms.push_back(0.0f);
+            }
+        }
+        else if (word == "vt")
+        {
+            stream >> word;
+            textures.push_back(stof(word));
+            stream >> word;
+            textures.push_back(stof(word));
         }
         else if (word == "f")
         {
             std::vector<int> faceVerts;
             while (stream >> word)
             {
-                //std::cout << word.substr(0, word.find('/')) << std::endl;
                 if (word.find('/') != std::string::npos)
                     faceVerts.push_back(std::stoi(word.substr(0, word.find('/'))));
                 else
@@ -282,13 +297,47 @@ std::vector<float> getObj(const char* file)
         }
         else continue;
     }
-    for (int i = 0; i < faces.size(); i++)
+
+    int i = 0;
+    int a = 0;
+    while (i < faces.size())
     {
-        //std::cout << verts.at(faces.at(i));
-        triangles.push_back(verts.at(faces.at(i) * 3));
-        triangles.push_back(verts.at(faces.at(i) * 3 + 1));
-        triangles.push_back(verts.at(faces.at(i) * 3 + 2));
+        glm::vec3 vert1 = glm::vec3(verts.at(faces.at(i) * 3), verts.at(faces.at(i) * 3 + 1), verts.at(faces.at(i) * 3 + 2));
+        glm::vec3 vert2 = glm::vec3(verts.at(faces.at(i + 1) * 3), verts.at(faces.at(i + 1) * 3 + 1), verts.at(faces.at(i + 1) * 3 + 2));
+        glm::vec3 vert3 = glm::vec3(verts.at(faces.at(i + 2) * 3), verts.at(faces.at(i + 2) * 3 + 1), verts.at(faces.at(i + 2) * 3 + 2));
+
+        glm::vec3 norm = glm::cross(vert2 - vert1, vert3 - vert1);
+        /*
+        std::cout << vert1.x << " " << vert1.y << " " << vert1.z << "; ";
+        std::cout << vert2.x << " " << vert2.y << " " << vert2.z << "; ";
+        std::cout << vert3.x << " " << vert3.y << " " << vert3.z << "; ";
+        std::cout << norm.x << " " << norm.y << " " << norm.z << std::endl;
+        */
+        
+        for (int j = i; j < i + 3; j++)
+        {
+            vertNorms.at(faces.at(j) * 4) += 1.0f;
+            vertNorms.at(faces.at(j) * 4 + 1) += norm.x;
+            vertNorms.at(faces.at(j) * 4 + 2) += norm.y;
+            vertNorms.at(faces.at(j) * 4 + 3) += norm.z;
+        }
+        
+
+        i += 3;
     }
+
+    for (int j = 0; j < vertNorms.size(); j = j + 4)
+    {
+        float n = vertNorms.at(j);
+        if (n == 0.0f) continue;
+        vertNorms.at(j + 1) = vertNorms.at(j + 1) / n;
+        vertNorms.at(j + 2) = vertNorms.at(j + 2) / n;
+        vertNorms.at(j + 3) = vertNorms.at(j + 3) / n;
+    }
+
+    for (int i = 0; i < vertNorms.size(); i++)
+        std::cout << vertNorms.at(i) << " ";
+
 
     if (faces.size() == 0)
         return verts;
